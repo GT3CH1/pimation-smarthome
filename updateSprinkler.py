@@ -18,5 +18,5 @@ while 1:
         sysname = 'sprinkler-zone-'+str(sysnumber)
         sysdata = data[sysname]
         booleans[sysnumber] = sysdata['OnOff']['on']
-        print(booleans[sysnumber])
+    print(booleans)
     sleep(time_to_sleep)
