@@ -5,10 +5,10 @@ from firebase_admin import db
 from firebase_admin import credentials
 
 import requests
-cred = credentials.Certificate("/root/serviceAccountKey.json")
+cred = credentials.Certificate("/home/gcpease/serviceAccountKey.json")
 firebase_admin.initialize_app(cred, {'databaseURL': 'https://new-project-3cddb-default-rtdb.firebaseio.com'})
 ref = db.reference()
-URL = "http://lightpi.peasenet.com/"
+URL = "http://pimation.peasenet.com/modules/SQLSprinkler/lib/api.php"
 PREV_ON = False
 time_to_sleep=5
 while 1:
