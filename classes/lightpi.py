@@ -1,15 +1,21 @@
-class lightpi:
-    def do_loop(self):
+import requests
+LIGHT_URL = "http://lightpi.peasenet.com/"
+PREV_ON = False
+
+
+class LightPi:
+    def do_loop(self, ref):
         global PREV_ON
         on = ref.get()['1']['OnOff']['on']
-        if(on != PREV_ON):
-            if(on == True):
-                PARAMS = {'status':'on'}
-                print(sending on)
+        if on != PREV_ON:
+            if on:
+                params = {'status': 'on'}
+                print("sending on")
             else:
-                PARAMS = {'status':'off'}
-                print(sending off)
-            requests.get(url = LIGHT_URL+submit.php, params = PARAMS)
+                params = {'status': 'off'}
+                print("sending off")
+            requests.get(url=LIGHT_URL + "submit.php", params=params)
             PREV_ON = on
+
     def __init__(self):
         self.do_loop()

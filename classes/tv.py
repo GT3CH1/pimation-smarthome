@@ -1,15 +1,29 @@
-class tvOnOff:
-    def do_loop(self):
-        global prev_tv_vol
-        global prev_tv_onoff
-        vol = ref.get()['upstairs-tv']['Volume']['currentVolume']
-        onoff = ref.get()['upstairs-tv']['OnOff']['on']
-        if vol != prev_tv_vol:
-            print('running vol')
-            prev_tv_vol = vol
-            subprocess.call('/root/lgtv2/script.sh vol ' + str(vol),shell=True)
-            print('done with tv.')
-        # TODO: fix power issue on tv
+from pywebostv.discovery import *    # Because I'm lazy, don't do this.
+from pywebostv.connection import *
+from pywebostv.controls import *
+import json
+from os import getcwd
 
-    def __init__(self):
-        self.do_loop()
+# 1. For the first run, pass in an empty dictionary object. Empty store leads to an Authentication prompt on TV.
+# 2. Go through the registration process. `store` gets populated in the process.
+# 3. Persist the `store` state to disk.
+# 4. For later runs, read your storage and restore the value of `store`.
+store = {}
+with open(getcwd()+'/resources/tv.json') as file:
+    client = json.load(file)
+
+# Scans the current network to discover TV. Avoid [0] in real code. If you already know the IP,
+# you could skip the slow scan and # instead simply say:
+#    client = WebOSClient("<IP Address of TV>")
+client = WebOSClient.discover()[0]
+client.connect()
+for status in client.register(store):
+    if status == WebOSClient.PROMPTED:
+        print("Please accept the connect on the TV!")
+    elif status == WebOSClient.REGISTERED:
+        print("Registration successful!")
+
+# Keep the 'store' object because it contains now the access token
+# and use it next time you want to register on the TV.
+print(store)   # {'client_key': 'ACCESS_TOKEN_FROM_TV'}
+
