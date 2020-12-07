@@ -1,3 +1,4 @@
 resources/
 classes/resources/
+**/__pycache__
 .idea/
