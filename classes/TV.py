@@ -20,12 +20,13 @@ print("IP : " + ip)
 # you could skip the slow scan and # instead simply say:
 #    client = WebOSClient("<IP Address of TV>")
 client = WebOSClient(str(ip))
-client.connect()
-for status in client.register(store):
-    if status == WebOSClient.PROMPTED:
-        print("Please accept the connect on the TV!")
-    elif status == WebOSClient.REGISTERED:
-        print("Registration successful!")
+def connect():
+    client.connect()
+    for status in client.register(store):
+       if status == WebOSClient.PROMPTED:
+           print("Please accept the connect on the TV!")
+       elif status == WebOSClient.REGISTERED:
+           print("Registration successful!")
 
 # Keep the 'store' object because it contains now the access token
 # and use it next time you want to register on the TV.
