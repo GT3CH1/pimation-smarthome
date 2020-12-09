@@ -17,14 +17,12 @@ def do_loop(ref):
         global sqlSprinklerJson
         global first_run
         update_sql_sprinkler()
-        print("Last google home value: " + str(last_google_home_val))
         data = ref.get()
         for sys_number in range(1, 11):
             sys_name = 'sprinkler-zone-' + str(sys_number)
             sys_data = data[sys_name]
             googleHomeBooleans[sys_number] = sys_data['OnOff']['on']
             if(googleHomeBooleans[sys_number] and first_run):
-                print("Fisrt run of sql sprinkler")
                 last_google_home_val = sys_number
                 first_run = False
                 last_google_home_bool = True
@@ -33,13 +31,11 @@ def do_loop(ref):
                 if last_google_home_val == i and not googleHomeBooleans[i] and last_google_home_bool:
                     pin = str(sqlSprinklerJson[i - 1]['gpio'])
                     update_string = '?off=' + pin + '&sysval=' + str(i)
-                    print("sending off to system: " + str(i))
                     requests.get(url=SQL_URL + update_string)
                     last_google_home_bool = False
                     last_google_home_val = i
                     if not last_google_home_bool and last_google_home_val == i:
                         continue
-                    print("Turning off: " + str(i))
                     for j in range(1, 11):
                         if googleHomeBooleans[i]:
                             sys_name = 'sprinkler-zone-' + str(j)
@@ -60,11 +56,9 @@ def do_loop(ref):
                     ref.update(update_val)
                     last_google_home_val = i
                     last_google_home_bool = True
-                    print("Turning on:  " + str(i))
                 for j in range(1, 11):
                     if googleHomeBooleans[j] and j != i:
                         sys_name = 'sprinkler-zone-' + str(j)
-                        print("Setting " + sys_name + " to off.")
                         update_val = {sys_name: {'OnOff': {'on': False}}}
                         ref.update(update_val)
                         googleHomeBooleans[i] = False

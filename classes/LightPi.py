@@ -8,9 +8,7 @@ def do_loop(ref):
          if on != PREV_ON:
             if on:
                 params = {'status': 'on'}
-                print("sending on")
             else:
                 params = {'status': 'off'}
-                print("sending off")
             requests.get(url=LIGHT_URL + "submit.php", params=params)
             PREV_ON =on
