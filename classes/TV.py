@@ -54,11 +54,11 @@ def checkTvOnOff(ref):
         send_magic_packet(mac, ip_address=ip)
         update_values(ref, False, volume, muted)
         #else:
-         #   print("tv is suppoed to be off.")
-            # The tv is suppoed to be off.
-         #   last_power = False
-         #   if not last_power:
-         #       update_values(ref, False, volume, muted)
+        #   print("tv is suppoed to be off.")
+        #   The tv is suppoed to be off.
+        #   last_power = False
+        #   if not last_power:
+        #       update_values(ref, False, volume, muted)
        
 def connect():
     global first_run
