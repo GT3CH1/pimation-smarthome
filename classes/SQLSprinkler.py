@@ -1,6 +1,6 @@
 import requests
 
-SQL_URL = "http://pimation.peasenet.com/modules/SQLSprinkler/lib/api.php"
+SQL_URL = "https://automation.peasenet.com/modules/SQLSprinkler/lib/api.php"
 last_google_home_val = -1
 last_google_home_bool = False
 first_run = True
@@ -32,6 +32,7 @@ def do_loop(ref):
                     pin = str(sqlSprinklerJson[i - 1]['gpio'])
                     update_string = '?off=' + pin + '&sysval=' + str(i)
                     requests.get(url=SQL_URL + update_string)
+                    print("Turning off zone {0}".format(i))
                     last_google_home_bool = False
                     last_google_home_val = i
                     if not last_google_home_bool and last_google_home_val == i:
@@ -54,6 +55,7 @@ def do_loop(ref):
                     sys_name = 'sprinkler-zone-' + str(i)
                     update_val = {sys_name: {'OnOff': {'on': True}}}
                     ref.update(update_val)
+                    print("Turning on zone {0}".format(i))
                     last_google_home_val = i
                     last_google_home_bool = True
                 for j in range(1, 11):
