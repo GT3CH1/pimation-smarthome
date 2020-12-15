@@ -14,27 +14,38 @@ import getopt
 
 cred = credentials.Certificate(str(pathlib.Path(__file__).parent.absolute()) + "/resources/serviceAccountKey.json")
 initialize_app(cred, {'databaseURL': 'https://new-project-3cddb-default-rtdb.firebaseio.com'})
-time_to_sleep = 1
-lgtv_first_run = True
+
+
 def main():
-    arg = None
     lgtv_first_run = True
-    if len(sys.argv) != 2:
-        print("Need two arguments!")
-        return
-    else:
-        arg = sys.argv[1]
+    time_to_sleep = 1
+    module_name = ''
+    try:
+        opts, args = getopt.getopt(sys.argv,"m:t:")
+    except getopt.GetoptError:
+        print("Usage: ./main.py -m module -t refresh_time")
+        sys.exit(2)
+    has_module = False
+    for opt, arg in opts:
+        if opt == '-m':
+            module_name = arg
+            has_module = True
+        elif opt == '-t':
+            time_to_sleep = arg
+    if not has_module:
+        print("Error: Need a module name to run.")
+        sys.exit(2)
     while 1:
         ref = db.reference()
-        if arg == "garage" or arg == "all":
+        if module_name == "garage" or module_name == "all":
             garage.do_loop(ref)
-        if arg == "br" or arg == "all":
+        if module_name == "br" or module_name == "all":
             br.do_loop(ref)
-        if arg == "lightpi" or arg == "all":
+        if module_name == "lightpi" or module_name == "all":
             lp.do_loop(ref)
-        if arg == "sprinkler" or arg == "all":
+        if module_name == "sprinkler" or module_name == "all":
             sprinkler.do_loop(ref)
-        if((arg == "tv" or arg == "all") and lgtv.checkTvOnOff(ref)):
+        if (module_name == "tv" or module_name == "all") and lgtv.checkTvOnOff(ref):
             if lgtv_first_run:
                 lgtv.connect()
                 lgtv_first_run = False
@@ -42,5 +53,7 @@ def main():
             else:
                 lgtv.do_loop(ref)
         sleep(time_to_sleep)
+
+
 if __name__ == "__main__":
     main()
