@@ -17,7 +17,7 @@ ip = None
 mac = None
 first_run = True 
 last_mute = True
-last_power = True
+last_power = False
 last_vol = -1
 
 media_client = None
@@ -27,8 +27,8 @@ system_client = None
 #    client = WebOSClient("<IP Address of TV>")
 
 def update_values(ref, power, volume, muted):
-    stepsize = ref.get()['upstairs-tv']['Volume']['stepSize']
-    print(" power: {0}, volume: {1}, muted: {2} ".format(power,volume,muted))
+    stepsize = 1
+#    print(" power: {0}, volume: {1}, muted: {2} ".format(power,volume,muted))
     data = {'upstairs-tv': { 'OnOff':{'on': power}, 'Volume': {'currentVolume': volume, 'stepSize': stepsize, 'isMuted': muted}}}
     ref.update(data)
 
@@ -43,23 +43,34 @@ def checkTvOnOff(ref):
             ip = clientdata['tv']['ip']
             mac = clientdata['tv']['mac']
 
+    volume = data['Volume']['currentVolume']
+    muted = data['Volume']['isMuted']
+    firebase_onoff = data['OnOff']['on']
+#    print("Last power status: {0}, firebase value: {1}".format(last_power,firebase_onoff))
     # pings the tv to see if it is on or off
     if(system('/usr/bin/ping '+ip+' -c 1 -w 1 > /dev/null ') == 0):
-        last_power = True
-    volume = ref.get()['upstairs-tv']['Volume']['currentVolume']
-    muted = ref.get()['upstairs-tv']['Volume']['isMuted']
+        if not last_power:
+#            print("TV on, last power was false.")
+            update_values(ref, True, volume, muted)
+            last_power = True
+        return True
+
         # If the TV is off and the status in firebase is on, turn it on.
-    if(data['OnOff']['on']):
+    elif(firebase_onoff and not last_power):
         last_power = True
+        print("Sending WOL packet to {0} ({1})".format(mac,ip))
         send_magic_packet(mac, ip_address=ip)
-        update_values(ref, False, volume, muted)
+        return True
         #else:
         #   print("tv is suppoed to be off.")
         #   The tv is suppoed to be off.
         #   last_power = False
         #   if not last_power:
         #       update_values(ref, False, volume, muted)
-       
+    elif(firebase_onoff and last_power):
+        last_power = False
+        update_values(ref, False, volume, muted)
+   
 def connect():
     global first_run
     global media_client
@@ -67,9 +78,13 @@ def connect():
     global store
     global ip
     global mac
-    if first_run:
+    global last_power
+    if first_run and last_power:
         client = WebOSClient(ip)
-        client.connect()
+        try:
+            client.connect()
+        except Exception:
+            pass
         register = client.register(store)
         for status in register:
                 if status == 2:
@@ -80,12 +95,16 @@ def connect():
 def update_settings(ref):
     global last_vol
     global media_client
-    current_tv_vol = media_client.get_volume()
-    current_mute_state = current_tv_vol['muted']
+    try:
+        current_tv_vol = media_client.get_volume()['volume']
+        current_mute_state = media_client.get_volume()['muted']
+    except Exception:
+        current_tv_vol = ref.get()['upstairs-tv']['Volume']['currentVolume']
+        current_mute_state = ref.get()['upstairs-tv']['Volume']['isMuted']
     firebase_vol = ref.get()['upstairs-tv']['Volume']
-    if (current_tv_vol['volume'] != firebase_vol['currentVolume']) or (firebase_vol['isMuted'] != current_mute_state):
-        print("Updating firebase.")
-        update_values(ref,True,current_tv_vol['volume'],current_mute_state)
+    if (current_tv_vol != firebase_vol['currentVolume']) or (firebase_vol['isMuted'] != current_mute_state):
+#        print("Updating firebase.")
+        update_values(ref,last_power,current_tv_vol,current_mute_state)
         return
 
 def do_loop(ref):
@@ -101,17 +120,21 @@ def do_loop(ref):
     isMuted = data['Volume']['isMuted']
     power = data['OnOff']['on']
     if (vol != last_vol) or (isMuted != last_mute):
-        first_run = False
+        try:
+            media_client.set_volume(vol) 
+            media_client.mute(isMuted)
+        except Exception:
+            pass
         last_vol = vol
         last_mute = isMuted
-        media_client.set_volume(vol) 
-        media_client.mute(isMuted)
+
     # Check the power status
     if power != last_power:
         last_power = power
-        # If firebase power is off, turn it off.
-        if not power and last_power:
+        if not power:
             try:
+                last_power = False
+                print("Powering off TV.")
                 system_client.power_off()
             except Exception:
                 return
