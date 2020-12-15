@@ -16,12 +16,12 @@ cred = credentials.Certificate(str(pathlib.Path(__file__).parent.absolute()) + "
 initialize_app(cred, {'databaseURL': 'https://new-project-3cddb-default-rtdb.firebaseio.com'})
 
 
-def main():
+def main(argv):
     lgtv_first_run = True
     time_to_sleep = 1
     module_name = ''
     try:
-        opts, args = getopt.getopt(sys.argv,"m:t:")
+        opts, args = getopt.getopt(argv, "m:t:")
     except getopt.GetoptError:
         print("Usage: ./main.py -m module -t refresh_time")
         sys.exit(2)
@@ -30,7 +30,7 @@ def main():
             module_name = arg
         elif opt == '-t':
             time_to_sleep = arg
-    print("Module: {0}, sleep: {1}".format(module_name,time_to_sleep))
+    print("Module: {0}, sleep: {1}".format(module_name, time_to_sleep))
     if not len(module_name) >= 2:
         print("Error: Need a module name to run.")
         sys.exit(2)
@@ -55,4 +55,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
