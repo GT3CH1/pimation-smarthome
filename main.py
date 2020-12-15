@@ -30,7 +30,7 @@ def main():
             module_name = arg
         elif opt == '-t':
             time_to_sleep = arg
-
+    print("Module: {0}, sleep: {1}".format(module_name,time_to_sleep))
     if not len(module_name) >= 2:
         print("Error: Need a module name to run.")
         sys.exit(2)
