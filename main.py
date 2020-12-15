@@ -25,14 +25,13 @@ def main():
     except getopt.GetoptError:
         print("Usage: ./main.py -m module -t refresh_time")
         sys.exit(2)
-    has_module = False
     for opt, arg in opts:
         if opt == '-m':
             module_name = arg
-            has_module = True
         elif opt == '-t':
             time_to_sleep = arg
-    if not has_module:
+
+    if not len(module_name) >= 2:
         print("Error: Need a module name to run.")
         sys.exit(2)
     while 1:
