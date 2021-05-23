@@ -9,6 +9,7 @@ import pathlib
 # 2. Go through the registration process. `store` gets populated in the process.
 # 3. Persist the `store` state to disk.
 # 4. For later runs, read your storage and restore the value of `store`.
+
 store = {'client_key': environ.get("CLIENT_KEY")}
 ip = None
 mac = None
@@ -50,6 +51,7 @@ def check_tv_power(ref):
 
     if ip is None and mac is None:
         path = str(pathlib.Path(__file__).parent.parent.absolute()) + '/resources/tv.json'
+        print("Loading {0}".format(path))
         with open(path) as file:
             client_data = json.load(file)
             ip = client_data['tv']['ip']
@@ -81,11 +83,9 @@ def check_tv_power(ref):
         return True
 
     # If the TV is off and the remote flag is enabled, turn on the tv.
-    elif firebase_on_off and remote_on:
+    elif (firebase_on_off and remote_on) and command != 0:
         wake_tv()
-        power_data['on'] = False
-        power_data['remote'] = False
-        update_values(ref, power_data, volume_data)
+        time.sleep(3000)
         return True
     elif not firebase_on_off and not remote_on:
         print("Both firebase remote and power are false")
@@ -100,25 +100,27 @@ def wake_tv():
 
 
 def connect():
-    global first_run
     global media_client
     global system_client
     global store
     global ip
     global mac
     global last_power
-    if first_run and last_power:
-        client = WebOSClient(ip)
-        try:
-            client.connect()
-        except Exception:
-            pass
-        register = client.register(store)
+    if 'client_key' in store:
+        print(store['client_key'])
+    client = WebOSClient(ip)
+    try:
+        print("Connecting...")
+        client.connect()
+        register = client.register(store, timeout=3)
         for status in register:
             if status == 2:
-                first_run = True
+                print("Connected!")
                 media_client = MediaControl(client)
                 system_client = SystemControl(client)
+    except Exception:
+        print("Could not connect.")
+        pass
 
 
 # Gets the current volume and mute state from our TV
@@ -146,7 +148,7 @@ def do_loop(ref):
 
     volume_data = {
         'currentVolume': current_tv_vol,
-        'isMuted': current_tv_vol,
+        'isMuted': firebase_mute,
         'remote': firebase_volume_remote
     }
 
@@ -159,13 +161,14 @@ def do_loop(ref):
         try:
             media_client.set_volume(firebase_volume)
             media_client.mute(firebase_mute)
+            current_tv_vol = firebase_volume
+            current_mute_state = firebase_mute
+            firebase_volume_remote = False
         except Exception:
             pass
     if ((firebase_volume != current_tv_vol) or (firebase_mute != current_mute_state)) and not firebase_volume_remote:
-        firebase_volume = current_tv_vol
-        firebase_mute = current_mute_state
-        volume_data['currentVolume'] = firebase_volume
-        volume_data['isMuted'] = firebase_mute
+        volume_data['currentVolume'] = current_tv_vol
+        volume_data['isMuted'] = current_mute_state
         volume_data['remote'] = False
     if not firebase_power and firebase_power_remote:
         try:
