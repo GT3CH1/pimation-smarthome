@@ -46,11 +46,7 @@ def main(argv):
             sprinkler.do_loop(ref)
         if module_name == "tv" or module_name == "all":
             power_on = lgtv.check_tv_power(ref)
-            if lgtv_first_run and power_on:
-                lgtv.connect()
-                lgtv_first_run = False
-                lgtv.do_loop(ref)
-            elif not lgtv_first_run and power_on:
+            if power_on:
                 lgtv.connect()
                 lgtv.do_loop(ref)
         sleep(time_to_sleep)
