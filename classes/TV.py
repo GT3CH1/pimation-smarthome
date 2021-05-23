@@ -90,6 +90,9 @@ def check_tv_power(ref):
     elif not firebase_on_off and not remote_on:
         print("Both firebase remote and power are false")
         return False
+    else:
+        print("TV is supposed to be off..")
+        return False
 
 
 def wake_tv():
@@ -106,8 +109,6 @@ def connect():
     global ip
     global mac
     global last_power
-    if 'client_key' in store:
-        print(store['client_key'])
     client = WebOSClient(ip)
     try:
         print("Connecting...")
