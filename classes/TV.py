@@ -1,76 +1,104 @@
-from pywebostv.discovery import *  # Because I'm lazy, don't do this.
 from pywebostv.connection import *
 from pywebostv.controls import *
 from wakeonlan import send_magic_packet
 import json
-from time import sleep
-from os import system
-from os import getcwd
-from os import environ
+from os import system, environ
 import pathlib
+
 # 1. For the first run, pass in an empty dictionary object. Empty store leads to an Authentication prompt on TV.
 # 2. Go through the registration process. `store` gets populated in the process.
 # 3. Persist the `store` state to disk.
 # 4. For later runs, read your storage and restore the value of `store`.
-store = {'client_key' : environ.get("CLIENT_KEY")}
+store = {'client_key': environ.get("CLIENT_KEY")}
 ip = None
 mac = None
-first_run = True 
+first_run = True
 last_mute = True
 last_power = False
 last_vol = -1
 
 media_client = None
 system_client = None
+
+
 # Scans the current network to discover TV. Avoid [0] in real code. If you already know the IP,
 # you could skip the slow scan and # instead simply say:
 #    client = WebOSClient("<IP Address of TV>")
 
-def update_values(ref, power, volume, muted):
-    stepsize = 1
-#    print(" power: {0}, volume: {1}, muted: {2} ".format(power,volume,muted))
-    data = {'upstairs-tv': { 'OnOff':{'on': power}, 'Volume': {'currentVolume': volume, 'stepSize': stepsize, 'isMuted': muted}}}
+def update_values(ref, power_data, volume_data):
+    # media_state = ref.get()['MediaState']
+    # current_application = ref.get()['currentApplication']['currentApplication']
+    # current_input = ref.get()['currentInput']['currentInput']
+    data = {
+        'upstairs-tv': {
+            'OnOff': power_data,
+            'Volume': volume_data
+            # 'MediaState': media_state,
+            # 'currentInput': {'currentInput': current_input},
+            # 'currentApplication': {'currentApplication': current_application}
+        }
+    }
+    print(data)
     ref.update(data)
 
-def checkTvOnOff(ref):
+
+def check_tv_power(ref):
     global last_power
     global mac
     global ip
     data = ref.get()['upstairs-tv']
-    if (ip == None and mac == None):
-        with open(str(pathlib.Path(__file__).parent.parent.absolute()) + '/resources/tv.json') as file: 
-            clientdata = json.load(file)
-            ip = clientdata['tv']['ip']
-            mac = clientdata['tv']['mac']
+
+    if ip is None and mac is None:
+        path = str(pathlib.Path(__file__).parent.parent.absolute()) + '/resources/tv.json'
+        with open(path) as file:
+            client_data = json.load(file)
+            ip = client_data['tv']['ip']
+            mac = client_data['tv']['mac']
 
     volume = data['Volume']['currentVolume']
     muted = data['Volume']['isMuted']
-    firebase_onoff = data['OnOff']['on']
-#    print("Last power status: {0}, firebase value: {1}".format(last_power,firebase_onoff))
-    # pings the tv to see if it is on or off
-    if(system('/usr/bin/ping '+ip+' -c 1 -w 1 > /dev/null ') == 0):
-        if not last_power:
-#            print("TV on, last power was false.")
-            update_values(ref, True, volume, muted)
-            last_power = True
+    vol_remote = data['Volume']['remote']
+    firebase_on_off = data['OnOff']['on']
+    remote_on = data['OnOff']['remote']
+
+    volume_data = {
+        'currentVolume': volume,
+        'isMuted': muted,
+        'remote': vol_remote
+    }
+
+    power_data = {
+        'on': True,
+        'remote': remote_on
+    }
+
+    # This returns 0 when the tv is pingable.
+    command = system('/usr/bin/ping ' + ip + ' -c 1 -w 1 > /dev/null ')
+    if command == 0:
+        if not remote_on:
+            update_values(ref, power_data, volume_data)
+            print("Setting firebase power to on")
         return True
 
-        # If the TV is off and the status in firebase is on, turn it on.
-    elif(firebase_onoff and not last_power):
-        last_power = True
-        print("Sending WOL packet to {0} ({1})".format(mac,ip))
-        send_magic_packet(mac, ip_address=ip)
+    # If the TV is off and the remote flag is enabled, turn on the tv.
+    elif firebase_on_off and remote_on:
+        wake_tv()
+        power_data['on'] = False
+        power_data['remote'] = False
+        update_values(ref, power_data, volume_data)
         return True
-        #else:
-        #   print("tv is suppoed to be off.")
-        #   The tv is suppoed to be off.
-        #   last_power = False
-        #   if not last_power:
-        #       update_values(ref, False, volume, muted)
-    elif(firebase_onoff and last_power):
-        last_power = False
-        update_values(ref, False, volume, muted)
-   
+    elif not firebase_on_off and not remote_on:
+        print("Both firebase remote and power are false")
+        return False
+
+
+def wake_tv():
+    global mac
+    global ip
+    print("Sending WOL packet to {0} ({1})".format(mac, ip))
+    send_magic_packet(mac, ip_address=ip)
+
+
 def connect():
     global first_run
     global media_client
@@ -87,13 +115,14 @@ def connect():
             pass
         register = client.register(store)
         for status in register:
-                if status == 2:
-                    first_run = True
-        media_client = MediaControl(client)
-        system_client = SystemControl(client)
+            if status == 2:
+                first_run = True
+                media_client = MediaControl(client)
+                system_client = SystemControl(client)
 
-def update_settings(ref):
-    global last_vol
+
+# Gets the current volume and mute state from our TV
+def get_tv_volume(ref):
     global media_client
     try:
         current_tv_vol = media_client.get_volume()['volume']
@@ -101,45 +130,51 @@ def update_settings(ref):
     except Exception:
         current_tv_vol = ref.get()['upstairs-tv']['Volume']['currentVolume']
         current_mute_state = ref.get()['upstairs-tv']['Volume']['isMuted']
-    firebase_vol = ref.get()['upstairs-tv']['Volume']
-    if (current_tv_vol != firebase_vol['currentVolume']) or (firebase_vol['isMuted'] != current_mute_state):
-#        print("Updating firebase.")
-        update_values(ref,last_power,current_tv_vol,current_mute_state)
-        return
+    return current_mute_state, current_tv_vol
 
+
+# The main chunk of code.
 def do_loop(ref):
-    global first_run
-    global last_vol
-    global last_mute
-    global last_power
-    global media_client
-    global system_client
-    global mac
+    global media_client, system_client, mac
     data = ref.get()['upstairs-tv']
-    vol = data['Volume']['currentVolume']
-    isMuted = data['Volume']['isMuted']
-    power = data['OnOff']['on']
-    if (vol != last_vol) or (isMuted != last_mute):
+    firebase_volume = data['Volume']['currentVolume']
+    firebase_mute = data['Volume']['isMuted']
+    firebase_power = data['OnOff']['on']
+    firebase_power_remote = data['OnOff']['remote']
+    firebase_volume_remote = data['Volume']['remote']
+    current_mute_state, current_tv_vol = get_tv_volume(ref)
+
+    volume_data = {
+        'currentVolume': current_tv_vol,
+        'isMuted': current_tv_vol,
+        'remote': firebase_volume_remote
+    }
+
+    power_data = {
+        'on': True,
+        'remote': firebase_power_remote
+    }
+
+    if ((firebase_volume != current_tv_vol) or (firebase_mute != current_mute_state)) and firebase_volume_remote:
         try:
-            media_client.set_volume(vol) 
-            media_client.mute(isMuted)
+            media_client.set_volume(firebase_volume)
+            media_client.mute(firebase_mute)
         except Exception:
             pass
-        last_vol = vol
-        last_mute = isMuted
+    if ((firebase_volume != current_tv_vol) or (firebase_mute != current_mute_state)) and not firebase_volume_remote:
+        firebase_volume = current_tv_vol
+        firebase_mute = current_mute_state
+        volume_data['currentVolume'] = firebase_volume
+        volume_data['isMuted'] = firebase_mute
+        volume_data['remote'] = False
+    if not firebase_power and firebase_power_remote:
+        try:
+            power_data['remote'] = False
+            power_data['on'] = False
+            print("Powering off TV.")
+            system_client.power_off()
+        except Exception:
+            pass
 
-    # Check the power status
-    if power != last_power:
-        last_power = power
-        if not power:
-            try:
-                last_power = False
-                print("Powering off TV.")
-                system_client.power_off()
-            except Exception:
-                return
-            return
-    update_settings(ref)
-
-# Keep the 'store' object because it contains now the access token
-# and use it next time you want to register on the TV.
+    update_values(ref, power_data, volume_data)
+    return

@@ -29,7 +29,7 @@ def main(argv):
         if opt == '-m':
             module_name = arg
         elif opt == '-t':
-            time_to_sleep = arg
+            time_to_sleep = int(arg)
     print("Module: {0}, sleep: {1}".format(module_name, time_to_sleep))
     if not len(module_name) >= 2:
         print("Error: Need a module name to run.")
@@ -44,13 +44,18 @@ def main(argv):
             lp.do_loop(ref)
         if module_name == "sprinkler" or module_name == "all":
             sprinkler.do_loop(ref)
-        if (module_name == "tv" or module_name == "all") and lgtv.checkTvOnOff(ref):
-            if lgtv_first_run:
+        if module_name == "tv" or module_name == "all":
+            power_on = lgtv.check_tv_power(ref)
+            if lgtv_first_run and power_on:
                 lgtv.connect()
                 lgtv_first_run = False
                 lgtv.do_loop(ref)
-            else:
+            elif not lgtv_first_run and power_on:
+                lgtv.connect()
                 lgtv.do_loop(ref)
+            else:
+                print("Not connected....")
+                lgtv.wake_tv()
         sleep(time_to_sleep)
 
 
