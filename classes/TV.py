@@ -90,6 +90,9 @@ def check_tv_power(ref):
     elif not firebase_on_off and not remote_on:
         print("Both firebase remote and power are false")
         return False
+    elif not firebase_on_off and remote_on:
+        print("TV needs to turn off.")
+        return True
     else:
         print("TV is supposed to be off..")
         return False
