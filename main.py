@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from classes import LightPi as lp
 from classes import SQLSprinkler as sprinkler
 from classes import TV as lgtv
 from classes import Garage as garage
@@ -17,7 +16,6 @@ initialize_app(cred, {'databaseURL': 'https://new-project-3cddb-default-rtdb.fir
 
 
 def main(argv):
-    lgtv_first_run = True
     time_to_sleep = 1
     module_name = ''
     try:
@@ -40,8 +38,6 @@ def main(argv):
             garage.do_loop(ref)
         if module_name == "br" or module_name == "all":
             br.do_loop(ref)
-        if module_name == "lightpi" or module_name == "all":
-            lp.do_loop(ref)
         if module_name == "sprinkler" or module_name == "all":
             sprinkler.do_loop(ref)
         if module_name == "tv" or module_name == "all":
