@@ -53,9 +53,6 @@ def main(argv):
             elif not lgtv_first_run and power_on:
                 lgtv.connect()
                 lgtv.do_loop(ref)
-            else:
-                print("Not connected....")
-                lgtv.wake_tv()
         sleep(time_to_sleep)
 
 
