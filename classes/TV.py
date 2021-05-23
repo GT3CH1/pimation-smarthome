@@ -5,12 +5,9 @@ import json
 from os import system, environ
 import pathlib
 
-# 1. For the first run, pass in an empty dictionary object. Empty store leads to an Authentication prompt on TV.
-# 2. Go through the registration process. `store` gets populated in the process.
-# 3. Persist the `store` state to disk.
-# 4. For later runs, read your storage and restore the value of `store`.
-
+# Load the client key from environment.
 store = {'client_key': environ.get("CLIENT_KEY")}
+
 ip = None
 mac = None
 first_run = True
@@ -22,11 +19,14 @@ media_client = None
 system_client = None
 
 
-# Scans the current network to discover TV. Avoid [0] in real code. If you already know the IP,
-# you could skip the slow scan and # instead simply say:
-#    client = WebOSClient("<IP Address of TV>")
-
-def update_values(ref, power_data, volume_data):
+def update_tv_state(ref, power_data, volume_data):
+    """
+    Updates the TV state in firebase.
+    :param ref: The firebase reference.
+    :param power_data: The JSON data containing the power state and remote state.
+    :param volume_data: The JSON data containg the volume, mute, and remote state.
+    :return:
+    """
     # media_state = ref.get()['MediaState']
     # current_application = ref.get()['currentApplication']['currentApplication']
     # current_input = ref.get()['currentInput']['currentInput']
@@ -44,6 +44,15 @@ def update_values(ref, power_data, volume_data):
 
 
 def check_tv_power(ref):
+    """
+    Checks the current tv power, firebase power, and firebase remote.
+    If firebase power is on, and the remote flag is true, turn on the TV via WOL.
+    If firebase power is off, and the remote flag is true, do nothing. This is handled in the loop.
+    If the TV is on, and firebase power is off and remote is false, update firebase.
+    If the TV is off, and firebase power is on and remote is false, update firebase.
+    :param ref: The firebase reference.
+    :return:
+    """
     global last_power
     global mac
     global ip
@@ -78,7 +87,7 @@ def check_tv_power(ref):
     command = system('/usr/bin/ping ' + ip + ' -c 1 -w 1 > /dev/null ')
     if command == 0:
         if not remote_on:
-            update_values(ref, power_data, volume_data)
+            update_tv_state(ref, power_data, volume_data)
             print("Setting firebase power to on")
         return True
 
@@ -99,6 +108,10 @@ def check_tv_power(ref):
 
 
 def wake_tv():
+    """
+    Wakes up the TV via WOL.
+    :return: none.
+    """
     global mac
     global ip
     print("Sending WOL packet to {0} ({1})".format(mac, ip))
@@ -106,6 +119,10 @@ def wake_tv():
 
 
 def connect():
+    """
+    Connects the media and system client to the TV.
+    :return: none.
+    """
     global media_client
     global system_client
     global store
@@ -128,30 +145,39 @@ def connect():
 
 
 # Gets the current volume and mute state from our TV
-def get_tv_volume(ref):
+def get_tv_volume():
+    """
+    Gets the current TV volume.
+    :return: The current TV volume (mute state, volume). -1 if there was an error
+    """
     global media_client
     try:
         current_tv_vol = media_client.get_volume()['volume']
         current_mute_state = media_client.get_volume()['muted']
     except Exception:
-        current_tv_vol = ref.get()['upstairs-tv']['Volume']['currentVolume']
-        current_mute_state = ref.get()['upstairs-tv']['Volume']['isMuted']
+        current_tv_vol = -1
+        current_mute_state = -1
+        print("Could not get volume")
     return current_mute_state, current_tv_vol
 
 
-# The main chunk of code.
 def do_loop(ref):
+    """
+    Updates the volume and power of the tv.
+    :param ref: The firebase reference.
+    :return: none.
+    """
     global media_client, system_client, mac
     data = ref.get()['upstairs-tv']
     firebase_volume = data['Volume']['currentVolume']
+    firebase_volume_remote = data['Volume']['remote']
     firebase_mute = data['Volume']['isMuted']
     firebase_power = data['OnOff']['on']
     firebase_power_remote = data['OnOff']['remote']
-    firebase_volume_remote = data['Volume']['remote']
-    current_mute_state, current_tv_vol = get_tv_volume(ref)
+    current_mute_state, current_tv_vol = get_tv_volume()
 
     volume_data = {
-        'currentVolume': current_tv_vol,
+        'currentVolume': firebase_volume,
         'isMuted': firebase_mute,
         'remote': firebase_volume_remote
     }
@@ -160,20 +186,19 @@ def do_loop(ref):
         'on': True,
         'remote': firebase_power_remote
     }
-
-    if ((firebase_volume != current_tv_vol) or (firebase_mute != current_mute_state)) and firebase_volume_remote:
-        try:
-            media_client.set_volume(firebase_volume)
-            media_client.mute(firebase_mute)
-            current_tv_vol = firebase_volume
-            current_mute_state = firebase_mute
-            firebase_volume_remote = False
-        except Exception:
-            pass
-    if ((firebase_volume != current_tv_vol) or (firebase_mute != current_mute_state)) and not firebase_volume_remote:
-        volume_data['currentVolume'] = current_tv_vol
-        volume_data['isMuted'] = current_mute_state
-        volume_data['remote'] = False
+    if current_tv_vol > -1:
+        if firebase_volume_remote:
+            try:
+                media_client.set_volume(firebase_volume)
+                media_client.mute(firebase_mute)
+                volume_data['remote'] = False
+                print("Updating volume")
+            except Exception:
+                pass
+        if not firebase_volume_remote:
+            volume_data['currentVolume'] = current_tv_vol
+            volume_data['isMuted'] = current_mute_state
+            volume_data['remote'] = False
     if not firebase_power and firebase_power_remote:
         try:
             power_data['remote'] = False
@@ -183,5 +208,4 @@ def do_loop(ref):
         except Exception:
             pass
 
-    update_values(ref, power_data, volume_data)
-    return
+    update_tv_state(ref, power_data, volume_data)
