@@ -3,6 +3,7 @@ from classes import SQLSprinkler as sprinkler
 from classes import TV as lgtv
 from classes import Garage as garage
 from classes import BasementRouter as br
+from classes import PowerSupply as ps
 from firebase_admin import credentials, initialize_app, db
 
 from time import sleep
@@ -40,6 +41,8 @@ def main(argv):
             br.do_loop(ref)
         if module_name == "sprinkler" or module_name == "all":
             sprinkler.do_loop(ref)
+        if module_name == "ups" or module_name == "all":
+            ps.get_data_from_ups(ref)
         if module_name == "tv" or module_name == "all":
             power_on = lgtv.check_tv_power(ref)
             if power_on:
