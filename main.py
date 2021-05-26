@@ -39,8 +39,6 @@ def main(argv):
             garage.do_loop(ref)
         if module_name == "br" or module_name == "all":
             br.do_loop(ref)
-        if module_name == "sprinkler" or module_name == "all":
-            sprinkler.do_loop(ref)
         if module_name == "ups" or module_name == "all":
             ps.get_data_from_ups(ref)
         if module_name == "tv" or module_name == "all":
