@@ -21,7 +21,7 @@ def do_loop(ref):
     if FIRST_RUN:
         ref.update(garage_data)
         FIRST_RUN = False
-    is_remote = ref['garage-door']['OpenClose']['remote']
+    is_remote = ref.get()['garage-door']['OpenClose']['remote']
     if is_remote:
         print("Toggling garage...")
         params = {'toggle': '1'}
